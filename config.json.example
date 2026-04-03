@@ -1,0 +1,23 @@
+{
+  "imap": {
+    "host": "",
+    "port": 993,
+    "username": "",
+    "password": ""
+  },
+  "notion": {
+    "api_token": ""
+  },
+  "slack": {
+    "webhook_url": ""
+  },
+  "folders": {
+    "inbox": "INBOX",
+    "junk": "Junk",
+    "trash": "Trash"
+  },
+  "defaults": {
+    "since_hours": 24,
+    "trash_since_hours": 24
+  }
+}
