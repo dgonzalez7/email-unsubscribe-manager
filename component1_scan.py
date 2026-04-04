@@ -13,6 +13,7 @@ import json
 import re
 import sys
 import os
+import requests
 from datetime import datetime, timedelta, timezone
 from email.header import decode_header
 
@@ -231,6 +232,36 @@ def deduplicate_by_domain(results: list[dict]) -> list[dict]:
     return deduped
 
 
+# ── Slack notification ────────────────────────────────────────────────────────
+
+def send_slack_notification(webhook_url: str, folders: list[str], total_scanned: int,
+                             unique_domains: int, results: list[dict]) -> None:
+    """Post a scan summary to a Slack webhook. Silently skips if no URL configured."""
+    if not webhook_url:
+        print("[WARN] No Slack webhook configured, skipping notification", file=sys.stderr)
+        return
+
+    sender_names = [r["sender_name"] or r["sender_domain"] for r in results]
+    names_preview = ", ".join(sender_names[:20])
+    if len(sender_names) > 20:
+        names_preview += f", … (+{len(sender_names) - 20} more)"
+
+    message = (
+        f"📧 *Email Unsubscribe Scan Complete*\n"
+        f"• Folders scanned: {', '.join(folders)}\n"
+        f"• Total emails scanned: {total_scanned}\n"
+        f"• Unique sender domains with unsubscribe headers: {unique_domains}\n"
+        f"• Senders found: {names_preview}"
+    )
+
+    try:
+        resp = requests.post(webhook_url, json={"text": message}, timeout=10)
+        resp.raise_for_status()
+        print("[INFO] Slack notification sent", file=sys.stderr)
+    except Exception as exc:
+        print(f"[WARN] Slack notification failed: {exc}", file=sys.stderr)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -259,6 +290,7 @@ def main():
     print("[INFO] Login successful", file=sys.stderr)
 
     all_results: list[dict] = []
+    folders_scanned = [inbox_folder, junk_folder, trash_folder]
 
     try:
         # Inbox and Junk share the same time window
@@ -273,7 +305,8 @@ def main():
         except Exception:
             pass
 
-    print(f"[INFO] Total emails with List-Unsubscribe (before dedup): {len(all_results)}",
+    total_scanned = len(all_results)
+    print(f"[INFO] Total emails with List-Unsubscribe (before dedup): {total_scanned}",
           file=sys.stderr)
 
     final = deduplicate_by_domain(all_results)
@@ -291,6 +324,11 @@ def main():
         f.write(output_json)
         f.write("\n")
     print(f"[INFO] Results written to {out_path}", file=sys.stderr)
+
+    # Post scan summary to Slack
+    slack_cfg = cfg.get("slack", {})
+    webhook_url = slack_cfg.get("webhook_url", "")
+    send_slack_notification(webhook_url, folders_scanned, total_scanned, len(final), final)
 
 
 if __name__ == "__main__":
