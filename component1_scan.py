@@ -16,6 +16,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from email.header import decode_header
 
+import requests
+
 # ── Windows UTF-8 fix ────────────────────────────────────────────────────────
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -231,6 +233,47 @@ def deduplicate_by_domain(results: list[dict]) -> list[dict]:
     return deduped
 
 
+# ── Slack ─────────────────────────────────────────────────────────────────────
+
+def send_slack_notification(
+    results: list[dict],
+    webhook_url: str,
+    folders_scanned: list[str],
+    total_emails: int,
+) -> None:
+    if not webhook_url:
+        print("[WARN] No Slack webhook configured, skipping notification", file=sys.stderr)
+        return
+
+    unique_domains = len(results)
+    sender_names = [r["sender_name"] for r in results[:20]]
+
+    lines = [
+        "📧 Email Unsubscribe Scan Complete",
+        f"• Folders scanned: {', '.join(folders_scanned)}",
+        f"• Total emails scanned: {total_emails}",
+        f"• Unique sender domains with unsubscribe headers: {unique_domains}",
+    ]
+    if sender_names:
+        lines.append("• Senders:")
+        for name in sender_names:
+            lines.append(f"  – {name}")
+    else:
+        lines.append("• No senders found.")
+
+    message = "\n".join(lines)
+
+    try:
+        resp = requests.post(webhook_url, json={"text": message}, timeout=10)
+        if resp.status_code == 200:
+            print("[INFO] Slack notification sent", file=sys.stderr)
+        else:
+            print(f"[ERROR] Slack notification failed: {resp.status_code} {resp.text[:200]}",
+                  file=sys.stderr)
+    except Exception as exc:
+        print(f"[ERROR] Slack notification failed: {exc}", file=sys.stderr)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -291,6 +334,14 @@ def main():
         f.write(output_json)
         f.write("\n")
     print(f"[INFO] Results written to {out_path}", file=sys.stderr)
+
+    webhook_url = cfg.get("slack", {}).get("webhook_url", "")
+    send_slack_notification(
+        results=final,
+        webhook_url=webhook_url,
+        folders_scanned=[inbox_folder, junk_folder, trash_folder],
+        total_emails=len(all_results),
+    )
 
 
 if __name__ == "__main__":
