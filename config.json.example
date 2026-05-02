@@ -14,10 +14,12 @@
   "folders": {
     "inbox": "INBOX",
     "junk": "Junk",
-    "trash": "Trash"
+    "trash": "Trash",
+    "deleted": "Deleted Messages"
   },
   "defaults": {
     "since_hours": 24,
-    "trash_since_hours": 24
+    "trash_since_hours": 24,
+    "deleted_since_hours": 24
   }
 }

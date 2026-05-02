@@ -284,10 +284,14 @@ def main():
 
     since_hours = int(defaults.get("since_hours", 24))
     trash_since_hours = int(defaults.get("trash_since_hours", 24))
+    deleted_since_hours = int(defaults.get("deleted_since_hours", trash_since_hours))
 
-    inbox_folder = folders_cfg.get("inbox", "INBOX")
-    junk_folder = folders_cfg.get("junk", "Junk")
-    trash_folder = folders_cfg.get("trash", "Trash")
+    folders_to_scan = [
+        (folders_cfg.get("inbox",   "INBOX"),             since_hours),
+        (folders_cfg.get("junk",    "Junk"),              since_hours),
+        (folders_cfg.get("trash",   "Trash"),             trash_since_hours),
+        (folders_cfg.get("deleted", "Deleted Messages"),  deleted_since_hours),
+    ]
 
     print(f"[INFO] Connecting to {imap_cfg['host']}:{imap_cfg['port']} "
           f"as {imap_cfg['username']}", file=sys.stderr)
@@ -304,12 +308,8 @@ def main():
     all_results: list[dict] = []
 
     try:
-        # Inbox and Junk share the same time window
-        for folder in (inbox_folder, junk_folder):
-            all_results.extend(scan_folder(imap, folder, since_hours))
-
-        # Trash may have its own (often longer) window
-        all_results.extend(scan_folder(imap, trash_folder, trash_since_hours))
+        for folder_name, window in folders_to_scan:
+            all_results.extend(scan_folder(imap, folder_name, window))
     finally:
         try:
             imap.logout()
@@ -339,7 +339,7 @@ def main():
     send_slack_notification(
         results=final,
         webhook_url=webhook_url,
-        folders_scanned=[inbox_folder, junk_folder, trash_folder],
+        folders_scanned=[f for f, _ in folders_to_scan],
         total_emails=len(all_results),
     )
 

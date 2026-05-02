@@ -6,7 +6,7 @@ Automated email unsubscribe management for Fidei/Roundcube email accounts. Scans
 
 This system runs as four discrete components, each triggered on its own schedule:
 
-1. **Component 1 — IMAP Scanner** (`component1_scan.py`): Connects to your IMAP server, scans Inbox, Junk, and Trash for emails containing `List-Unsubscribe` headers, deduplicates by sender domain, and writes results to `scan_results.json`.
+1. **Component 1 — IMAP Scanner** (`component1_scan.py`): Connects to your IMAP server, scans Inbox, Junk, Trash, and Deleted Messages for emails containing `List-Unsubscribe` headers, deduplicates by sender domain, and writes results to `scan_results.json`.
 
 2. **Component 2 — Review Queue Builder** (`component2_review.py`): Reads `scan_results.json`, checks sender domains against existing Notion databases (Review Queue, Whitelist, Blacklist), creates new entries in the Notion Review Queue for unknown senders, and posts a Slack summary.
 
@@ -23,6 +23,8 @@ This system runs as four discrete components, each triggered on its own schedule
    ```
 
 2. Edit `config.json` with your IMAP server details, Notion API token, and Slack webhook URL.
+
+   Optional: Set `folders.deleted` to the exact name of your server's deleted-items folder (default: `"Deleted Messages"`). Set `defaults.deleted_since_hours` to control how far back that folder is scanned (default: same as `trash_since_hours`).
 
 3. Install dependencies:
 
