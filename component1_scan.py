@@ -139,8 +139,9 @@ def scan_folder(imap: imaplib.IMAP4_SSL, folder_name: str, since_hours: int) -> 
     """
     results = []
 
+    imap_folder = f'"{folder_name}"' if " " in folder_name else folder_name
     try:
-        status, data = imap.select(folder_name, readonly=True)
+        status, data = imap.select(imap_folder, readonly=True)
     except Exception as exc:
         print(f"[WARN] Could not select '{folder_name}': {exc}", file=sys.stderr)
         return results
@@ -325,10 +326,7 @@ def main():
 
     output_json = json.dumps(final, ensure_ascii=False, indent=2)
 
-    # Write to stdout (the clean JSON channel)
-    print(output_json)
-
-    # Also persist to scan_results.json
+    # Persist to scan_results.json
     out_path = os.path.join(SCRIPT_DIR, "scan_results.json")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(output_json)
